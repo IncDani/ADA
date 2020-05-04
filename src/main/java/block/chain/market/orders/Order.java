@@ -28,13 +28,6 @@ public class Order {
 	private Status status;
 	
 	Order() {}
-
-	public Order(Set<Long> productsId, float totalValue, Status status) {
-		super();
-		this.productsId = productsId;
-		this.totalValue = totalValue;
-		this.status = status;
-	}
 	
 	public Order(Set<Long> productsId, List<Integer> productsQuantity, float totalValue, Status status) {
 		super();

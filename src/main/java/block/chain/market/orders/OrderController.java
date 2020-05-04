@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import block.chain.market.products.InsufficientStockException;
 import block.chain.market.products.Product;
 import block.chain.market.products.ProductModelAssembler;
 import block.chain.market.products.ProductNotFoundException;
@@ -87,7 +88,7 @@ public class OrderController {
 	}
 
 	@PostMapping
-	ResponseEntity<EntityModel<Order>> newOrder(@RequestBody Order order) {
+	ResponseEntity<?> newOrder(@RequestBody Order order) {
 
 		order.setStatus(Status.IN_PROGRESS);
 		
@@ -96,17 +97,44 @@ public class OrderController {
 				.map(Product::getPrice)
 				.collect(Collectors.toList());
 		
+		List<Integer> stockList = productRepository.findAllById(order.getProductsId())
+				.stream()
+				.map(Product::getStock)
+				.collect(Collectors.toList());
+		
+		int index = 0;
+		
 		try {
 			float totalValue = 0;
 			
 			for(int i = 0; i < priceList.size(); i++) {
-				totalValue += priceList.get(i)  * order.getProductsQuantity().get(i);
+				
+				int requestedQuantity = order.getProductsQuantity().get(i);
+				int availableQuantity = stockList.get(i);
+				
+				if(requestedQuantity <= availableQuantity) {
+					totalValue += priceList.get(i)  * requestedQuantity;
+				}else {
+					index = i;
+					throw new InsufficientStockException(requestedQuantity, availableQuantity);
+				}
 			}
 			
 			order.setTotalValue(totalValue);
+			
+		}catch(InsufficientStockException e) {
+			
+			List<String> productList = productRepository.findAllById(order.getProductsId())
+					.stream()
+					.map(Product::getName)
+					.collect(Collectors.toList());
+			
+			return ResponseEntity
+					.status(HttpStatus.CONFLICT)
+					.body(new VndErrors.VndError("Stock not enough", "You can't order the requested amount for product " + productList.get(index)));
+			
 		}catch (Exception e) {
 			// TODO: handle exception
-			
 		}
 		
 		Order newOrder = orderRepository.save(order);
@@ -114,7 +142,7 @@ public class OrderController {
 		return ResponseEntity
 				.created(linkTo(methodOn(OrderController.class).one(newOrder.getId())).toUri())
 				.body(orderAssembler.toModel(newOrder));
-  }
+	}
 	  
 	@DeleteMapping("/{id}/cancel")
 	ResponseEntity<RepresentationModel> cancel(@PathVariable Long id) {
@@ -129,15 +157,32 @@ public class OrderController {
 		return ResponseEntity
 				.status(HttpStatus.METHOD_NOT_ALLOWED)
 				.body(new VndErrors.VndError("Method not allowed", "You can't cancel an order that is in the " + order.getStatus() + " status"));
-  }
+	}
 	
 	@PutMapping("/{id}/complete")
 	ResponseEntity<RepresentationModel> complete(@PathVariable Long id) {
 
 		Order order = orderRepository.findById(id).orElseThrow(() -> new OrderNotFoundException(id));
-
+		
+		List<Integer> stockList = productRepository.findAllById(order.getProductsId())
+				.stream()
+				.map(Product::getStock)
+				.collect(Collectors.toList());
+		
+		List<Product> productList = productRepository.findAllById(order.getProductsId())
+				.stream()
+				.collect(Collectors.toList());
+		
 		if (order.getStatus() == Status.IN_PROGRESS) {
+			
+			for(int i = 0; i < stockList.size(); i++) {
+				productList.get(i).setStock(
+						stockList.get(i) - order.getProductsQuantity().get(i)
+						);
+			}
+			
 			order.setStatus(Status.COMPLETED);
+			productRepository.saveAll(productList);
 			return ResponseEntity.ok(orderAssembler.toModel(orderRepository.save(order)));
 		}
 
