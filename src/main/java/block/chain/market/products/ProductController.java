@@ -1,6 +1,6 @@
 package block.chain.market.products;
 
-import java.net.URISyntaxException;
+//import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -23,7 +23,7 @@ import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
 
 @RestController
 @RequestMapping("/products")
-class ProductController {
+public class ProductController {
 	private final ProductRepository repository;
 	private final ProductModelAssembler assembler;
 
