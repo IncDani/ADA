@@ -7,6 +7,9 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.Table;
 
+import org.springframework.stereotype.Component;
+
+@Component
 @Data
 @Entity
 @Table(name = "products")
@@ -17,16 +20,15 @@ public class Product {
 	private String category;
 	private int stock;
 	private float price;
-	private int country;
+	private String country;	// try to make String
 	
 	public Product() {}
 
-	public Product(String name, String category, int stock, float price, int country) {
+	public Product(String name, String category, int stock, float price) {
 		super();
 		this.name = name;
 		this.category = category;
 		this.stock = stock;
 		this.price = price;
-		this.country = country;
 	}
 }

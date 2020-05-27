@@ -4,6 +4,7 @@ package block.chain.market.products;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.hateoas.CollectionModel;
 import org.springframework.hateoas.EntityModel;
 import org.springframework.hateoas.IanaLinkRelations;
@@ -24,15 +25,16 @@ import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
 @RestController
 @RequestMapping("/products")
 public class ProductController {
-	private final ProductRepository repository;
+	
+	@Autowired
+	private ProductRepository repository;
+	
 	private final ProductModelAssembler assembler;
 
-	ProductController(ProductRepository repository, ProductModelAssembler assembler) {
-		this.repository = repository;
+	ProductController(ProductModelAssembler assembler) {
 		this.assembler = assembler;
 	  }
 
-	  // Aggregate root
 
 	@GetMapping
 	CollectionModel<EntityModel<Product>> all() {

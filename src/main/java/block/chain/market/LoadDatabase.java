@@ -25,10 +25,10 @@ class LoadDatabase {
 	  
     return args -> {
     
-    	Product chocolate = new Product("Chocolate", "Food", 600, 5, 1);
-  	  	Product monitor = new Product("Monitor", "Electronics", 250, 1000, 1);
-  	  	Product t_shirt = new Product("T-Shirt", "Clothes", 1000, 10, 1);
-  	  	Product cheese = new Product("Cheese", "Food", 450, 6, 1);
+    	Product chocolate = new Product("Chocolate", "Food", 600, 5);
+  	  	Product monitor = new Product("Monitor", "Electronics", 250, 1000);
+  	  	Product t_shirt = new Product("T-Shirt", "Clothes", 1000, 10);
+  	  	Product cheese = new Product("Cheese", "Food", 450, 6);
     	
   	  	log.info("Preloading " + productRepository.save(chocolate));
   	  	log.info("Preloading " + productRepository.save(monitor));

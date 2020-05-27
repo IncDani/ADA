@@ -1,5 +1,6 @@
 package block.chain.market.orders;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -21,10 +22,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+
+import block.chain.market.communication.SQSUtil;
 import block.chain.market.products.InsufficientStockException;
 import block.chain.market.products.Product;
 import block.chain.market.products.ProductModelAssembler;
-import block.chain.market.products.ProductNotFoundException;
 import block.chain.market.products.ProductRepository;
 
 @RestController
@@ -36,6 +39,12 @@ public class OrderController {
 	
 	@Autowired
 	private ProductRepository productRepository;
+	
+	@Autowired
+	private SQSUtil<List<Product>> sqsUtilProducts;
+	
+	@Autowired
+	private SQSUtil<List<Integer>> sqsUtilQuantities;
 	
 	private final OrderModelAssembler orderAssembler;
 	private final ProductModelAssembler productAssmebler;
@@ -88,7 +97,7 @@ public class OrderController {
 	}
 
 	@PostMapping
-	ResponseEntity<?> newOrder(@RequestBody Order order) {
+	ResponseEntity<?> newOrder(@RequestBody Order order) throws JsonProcessingException {
 
 		order.setStatus(Status.IN_PROGRESS);
 		
@@ -102,6 +111,13 @@ public class OrderController {
 				.map(Product::getStock)
 				.collect(Collectors.toList());
 		
+		List<Product> productList = productRepository.findAllById(order.getProductsId())
+				.stream()
+				.collect(Collectors.toList());
+		
+		List<Product> foreignProducts = new ArrayList<Product>();
+		List<Integer> quantities = new ArrayList<Integer>();
+		
 		int index = 0;
 		
 		try {
@@ -113,10 +129,12 @@ public class OrderController {
 				int availableQuantity = stockList.get(i);
 				
 				if(requestedQuantity <= availableQuantity) {
-					totalValue += priceList.get(i)  * requestedQuantity;
+					totalValue += priceList.get(i) * requestedQuantity;
 				}else {
-					index = i;
-					throw new InsufficientStockException(requestedQuantity, availableQuantity);
+//					index = i;
+//					throw new InsufficientStockException(requestedQuantity, availableQuantity);
+					foreignProducts.add(productList.get(i));
+					quantities.add(requestedQuantity);
 				}
 			}
 			
@@ -124,17 +142,22 @@ public class OrderController {
 			
 		}catch(InsufficientStockException e) {
 			
-			List<String> productList = productRepository.findAllById(order.getProductsId())
-					.stream()
-					.map(Product::getName)
-					.collect(Collectors.toList());
+//			List<Product> productList = productRepository.findAllById(order.getProductsId())
+//					.stream()
+//					.collect(Collectors.toList());
 			
-			return ResponseEntity
-					.status(HttpStatus.CONFLICT)
-					.body(new VndErrors.VndError("Stock not enough", "You can't order the requested amount for product " + productList.get(index)));
+//			return ResponseEntity
+//					.status(HttpStatus.CONFLICT)
+//					.body(new VndErrors.VndError("Stock not enough", "You can't order the requested amount for product " + productList.get(index).getName()));
 			
 		}catch (Exception e) {
 			// TODO: handle exception
+			
+		}
+		
+		if(!foreignProducts.isEmpty()) {
+			sqsUtilProducts.sendSQSMessage(foreignProducts);
+			sqsUtilQuantities.sendSQSMessage(quantities);
 		}
 		
 		Order newOrder = orderRepository.save(order);
